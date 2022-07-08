@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ajax</title>
+</head>
+<body>
+<input type="button" value="发送" onclick="send()">
+<script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
+
+<script>
+    function send() {
+        $.ajax({
+            type:'post',
+            url:'/community/ajax',
+            dataType:'json',
+            data:'name=张三&age=22',
+            success:function(data) {
+                console.log(typeof data);
+                console.log(data.code);
+                console.log(data.msg);
+            }
+        })
+        /*$.post(
+            "/community/ajax",
+            {"name": "李四", "age": 22},
+            function(data){
+                console.log(typeof data);
+                console.log(data);
+            }
+        )*/
+    }
+</script>
+
+</body>
+</html>
