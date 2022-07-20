@@ -19,7 +19,7 @@ public class LoginTicket {
     private int id;
     private int userId;
     private String ticket;
-    private int status;
+    private int status;  // 0-有效; 1-无效;
     private Date expired;
 
 }

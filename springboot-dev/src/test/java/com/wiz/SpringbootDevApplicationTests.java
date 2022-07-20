@@ -168,4 +168,11 @@ class SpringbootDevApplicationTests {
         System.out.println(s1);
         System.out.println(target);
     }
+
+    @Test
+    public void testString(){
+        String s = "hello.jpg";
+        int i = s.lastIndexOf(".");
+        System.out.println(i);
+    }
 }

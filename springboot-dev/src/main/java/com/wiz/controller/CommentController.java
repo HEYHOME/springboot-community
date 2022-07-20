@@ -68,7 +68,6 @@ public class CommentController implements CommunityConstant {
                     .setEntityType(ENTITY_TYPE_POST)
                     .setEntityId(discussPostId);
              eventProducer.fireEvent(event);
-
         }
 
         return "redirect:/discuss/detail/"+discussPostId;
