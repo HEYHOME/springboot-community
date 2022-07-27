@@ -1,6 +1,7 @@
 package com.wiz.service;
 
 import com.mysql.cj.log.Log;
+import com.sun.mail.imap.protocol.UIDSet;
 import com.wiz.dao.LoginTicketMapper;
 import com.wiz.entity.LoginTicket;
 import com.wiz.entity.User;
@@ -9,7 +10,9 @@ import com.wiz.util.CommunityConstant;
 import com.wiz.util.CommunityUtil;
 import com.wiz.util.MailClient;
 import com.wiz.util.RedisKeyUtil;
+import io.lettuce.core.models.role.RedisUpstreamInstance;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.tomcat.websocket.AsyncChannelWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,6 +21,9 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletResponse;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -218,10 +224,99 @@ public class UserService implements CommunityConstant {
         return map;
     }
 
+    public Map<String, Object> updatePassword(int userId, String password) {
+        Map<String,Object> map = new HashMap<>();
+        User user = userMapper.selectById(userId);
+        String newPassword = CommunityUtil.md5(password + user.getSalt());
+        if (user.getPassword().equals(newPassword)) {
+            map.put("passwordMsg","新密码不能与原密码相同");
+            return map;
+        }
+        int rows = userMapper.updatePassword(userId, newPassword);
+        clearCache(userId);
+        return map;
+    }
+
+    // 获取重置密码时的验证码
+    public Map<String, Object> getVerifyCode(String email) {
+        Map<String, Object> map = new HashMap<>();
+        // 空值处理
+        if (StringUtils.isBlank(email)) {
+            map.put("emailMsg", "邮箱不能为空");
+            return map;
+        }
+
+        // 验证邮箱
+        User user = userMapper.selectByEmail(email);
+        if (user == null){
+            map.put("emailMsg","该邮箱还未注册过，请注册后再使用！");
+            return map;
+        }
+        //该用户还未激活
+        if (user.getStatus() == 0){
+            map.put("emailMsg","该邮箱还未激活，请到邮箱中激活后再使用！");
+            return map;
+        }
+
+        // 邮箱正常情况下,发送验证码
+        // 生成验证码
+        int num = (int) (Math.random() * 100000);
+        String verifycode = num + "";
+
+        // // 验证码的归属
+        // String verifyCodeOwner = CommunityUtil.generateUUID();
+        // Cookie cookie = new Cookie("verifyCodeOwner", verifyCodeOwner);
+        // cookie.setMaxAge(60*5);
+        // cookie.setPath((contextPath));
+        // response.addCookie(cookie);
+        // // 将验证码存入redis
+        // String redisKey = RedisKeyUtil.getCodeKey(verifyCodeOwner);
+        // redisTemplate.opsForValue().set(redisKey, verifycode, 60 * 5, TimeUnit.SECONDS);
+
+        // 发送邮件
+        Context context = new Context();
+        context.setVariable("verifycode", verifycode);
+        context.setVariable("email", user.getEmail());
+        String content = templateEngine.process("/mail/forget", context);
+        mailClient.sendMail(user.getEmail(), "重置密码",content);
+        map.put("verifycode", verifycode);
+        map.put("expirationTime", LocalDateTime.now().plusMinutes(5L));//过期时间
+        return map;
+    }
+
+    // 忘记密码
+    public Map<String, Object> forget(String email, String code, String password) {
+        Map<String, Object> map = new HashMap<>();
+        // 空值处理
+        if (StringUtils.isBlank(email)) {
+            map.put("emailMsg", "邮箱不能为空");
+            return map;
+        }
+        if (StringUtils.isBlank(code)) {
+            map.put("codeMsg","验证码不能为空");
+            return map;
+        }
+        if (StringUtils.isBlank(password)) {
+            map.put("passwordMsg","密码不能为空");
+            return map;
+        }
+        User user = userMapper.selectByEmail(email);
+        String newPassword = CommunityUtil.md5(password + user.getSalt());
+        if (newPassword.equals(user.getPassword())) {
+            map.put("passwordMsg","新密码不能与原密码相同");
+            return map;
+        }
+        userMapper.updatePassword(user.getId(), newPassword);
+        return map;
+    }
+
     public User findUserByName(String username) {
         return userMapper.selectByName(username);
     }
 
+    public User findUserByEmail(String email) {
+        return userMapper.selectByEmail(email);
+    }
     /**
      * 使用Redis缓存用户信息用到的方法
      *

@@ -8,6 +8,8 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.TimeUnit;
+
 /**
  * @Description:
  * @Create: 2022-03-27-14:27
@@ -29,7 +31,6 @@ public class LIkeService {
                 String userLikeKey = RedisKeyUtil.getUserLikeKey(entityUserId);
 
                 boolean isMember = operations.opsForSet().isMember(entityLikeKey, userId);
-
                 operations.multi();
                 if (isMember) {
                     operations.opsForSet().remove(entityLikeKey, userId);
